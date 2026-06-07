@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>수지골 DICOM 측정기 v5</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#111827;color:#eee;font-family:'Segoe UI',sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column;}
+
+.topbar{background:#0f172a;border-bottom:1px solid #1e3a5f;height:44px;flex-shrink:0;display:flex;align-items:center;padding:0 14px;gap:10px;}
+.topbar-title{font-size:13px;font-weight:700;color:#4fc3f7;white-space:nowrap;}
+.ps-badge{background:#0a1e35;border:1px solid #1e3a5f;border-radius:5px;padding:2px 10px;font-size:10px;color:#64748b;white-space:nowrap;}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+.top-btn{padding:4px 11px;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;background:#4fc3f7;color:#0a1628;}
+
+.main{display:flex;flex:1;min-height:0;}
+
+.sidebar{width:292px;min-width:292px;background:#0f172a;border-right:1px solid #1e3a5f;display:flex;flex-direction:column;overflow:hidden;}
+.sidebar-scroll{flex:1;overflow-y:auto;padding:9px;display:flex;flex-direction:column;gap:7px;}
+.sec{font-size:9px;text-transform:uppercase;letter-spacing:1px;font-weight:700;color:#4fc3f7;}
+
+.meta-block{background:#0d1c35;border-radius:7px;padding:8px;display:flex;flex-direction:column;gap:5px;}
+.meta-row{display:flex;align-items:center;gap:6px;}
+.meta-row label{font-size:10px;color:#94a3b8;width:50px;flex-shrink:0;}
+.meta-row input[type=text],.meta-row input[type=date]{flex:1;background:#0a1628;border:1px solid #1e3a5f;border-radius:4px;color:#eee;font-size:11px;padding:3px 7px;outline:none;}
+.meta-row input:focus{border-color:#4fc3f7;}
+
+.ps-panel{background:#0a1e2a;border:1px solid #1e3a5f;border-radius:6px;padding:7px 9px;font-size:10px;display:flex;flex-direction:column;gap:3px;}
+.ps-row{display:flex;justify-content:space-between;}
+.ps-key{color:#64748b;}
+
+.scard{border-radius:7px;padding:8px 9px;background:#0d1c35;border-left:3px solid #333;transition:box-shadow 0.15s,opacity 0.15s;}
+.scard.done{opacity:0.85;}
+.scard.waiting{opacity:0.38;}
+.clabel{font-size:11px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:5px;}
+.badge{display:inline-block;padding:1px 6px;border-radius:7px;font-size:9px;font-weight:700;}
+.plist{display:flex;flex-direction:column;gap:2px;margin-bottom:4px;}
+.pitem{background:#0a1628;border-radius:4px;padding:3px 7px;font-size:10px;display:flex;align-items:center;gap:5px;}
+.pdot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.cinfo{font-size:10px;line-height:1.8;}
+.empty{color:#475569;font-style:italic;font-size:10px;}
+
+.res-block{background:#0a1628;border-radius:7px;padding:8px;border:1px solid #1e3a5f;display:flex;flex-direction:column;gap:1px;}
+.drow{display:flex;justify-content:space-between;align-items:center;padding:3px 4px;border-radius:4px;}
+.dl{font-size:10px;color:#64748b;}
+.dv{font-size:11px;font-weight:700;color:#38bdf8;}
+.drow.hi .dl{font-weight:700;}
+.drow.hi .dv{font-size:12px;}
+
+.sep{height:1px;background:#1e3a5f;flex-shrink:0;}
+
+.btn{padding:6px;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;width:100%;margin-bottom:3px;text-align:center;display:block;}
+.btn-green{background:#14532d;color:#86efac;}.btn-green:hover{background:#166534;}
+.btn-warn{background:#3d1818;color:#f87171;}.btn-warn:hover{background:#5a2020;}
+.file-label-sec{display:block;width:100%;padding:6px;background:#1e3a5f;color:#cbd5e1;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;text-align:center;margin-bottom:3px;}
+.file-label-sec:hover{background:#2a4f80;color:#fff;}
+.file-label-sec input[type=file]{display:none;}
+
+.canvas-area{flex:1;position:relative;overflow:hidden;background:#050810;display:flex;align-items:center;justify-content:center;}
+canvas{cursor:crosshair;display:block;position:absolute;top:0;left:0;}
+
+.dropzone{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#050810;z-index:10;}
+.dropzone.hidden{display:none;}
+.drop-icon{font-size:52px;}.drop-text{font-size:14px;color:#94a3b8;}.drop-sub{font-size:11px;color:#475569;}
+.drop-overlay{position:absolute;inset:0;border:3px dashed #ffffff33;border-radius:8px;pointer-events:none;opacity:0;transition:opacity 0.2s;}
+.drop-overlay.show{opacity:1;}
+.file-label-drop{display:inline-block;padding:9px 22px;background:#4fc3f7;color:#0a1628;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;}
+.file-label-drop:hover{background:#29b6f6;}
+.file-label-drop input[type=file]{display:none;}
+
+.hint{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(14,24,50,0.92);border:1px solid #1e3a5f;border-radius:18px;padding:4px 16px;font-size:11px;color:#cbd5e1;pointer-events:none;white-space:nowrap;z-index:5;}
+.zctrls{position:absolute;bottom:10px;right:10px;display:flex;gap:5px;z-index:5;}
+.zbtn{width:30px;height:30px;background:rgba(14,24,50,0.9);border:1px solid #1e3a5f;border-radius:6px;color:#94a3b8;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.zbtn:hover{background:#1e3a5f;color:#fff;}
+.zoom-pct{height:30px;padding:0 8px;background:rgba(14,24,50,0.9);border:1px solid #1e3a5f;border-radius:6px;color:#94a3b8;font-size:11px;font-weight:700;display:flex;align-items:center;min-width:52px;justify-content:center;}
+
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:200;align-items:center;justify-content:center;}
+.modal-bg.show{display:flex;}
+.modal{background:#0f172a;border:1px solid #1e3a5f;border-radius:12px;width:1100px;max-width:97vw;max-height:87vh;display:flex;flex-direction:column;padding:18px;}
+.modal h2{font-size:14px;margin-bottom:10px;}
+.modal-actions{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.modal-actions button{padding:6px 14px;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;}
+.btn-csv{background:#14532d;color:#86efac;}
+.tbl-wrap{overflow:auto;flex:1;}
+table{width:100%;border-collapse:collapse;font-size:10px;white-space:nowrap;}
+th{background:#1e3a5f;color:#94a3b8;padding:6px 8px;text-align:left;position:sticky;top:0;}
+td{padding:5px 8px;border-bottom:1px solid #0f2040;color:#cbd5e1;}
+tr:hover td{background:#0d1f40;}
+.del-btn{background:#3d1818;color:#f87171;border:none;border-radius:4px;padding:2px 7px;cursor:pointer;font-size:10px;}
+.no-data{text-align:center;color:#475569;padding:30px;font-style:italic;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">🦴 수지골 DICOM 측정기 v5</span>
+  <div class="ps-badge" id="psBadge">픽셀간격 -</div>
+  <div id="batchBar" style="display:none;align-items:center;gap:8px;background:#0a1e35;border:1px solid #1e3a5f;border-radius:6px;padding:3px 10px;">
+    <span style="font-size:10px;color:#94a3b8">📁 배치:</span>
+    <span id="batchCurrent" style="font-size:11px;font-weight:700;color:#38bdf8;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">-</span>
+    <span id="batchIdx" style="font-size:10px;color:#64748b">0/0</span>
+    <div style="width:80px;height:4px;background:#1e3a5f;border-radius:2px;overflow:hidden">
+      <div id="batchProgress" style="height:100%;background:#4fc3f7;width:0%;transition:width 0.3s"></div>
+    </div>
+    <button id="batchSkipBtn" style="padding:2px 8px;border:none;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;background:#1e3a5f;color:#94a3b8">건너뛰기 ▶</button>
+    <button id="batchStopBtn" style="padding:2px 8px;border:none;border-radius:4px;font-size:10px;font-weight:700;cursor:pointer;background:#3d1818;color:#f87171">✕ 종료</button>
+  </div>
+  <div class="topbar-right">
+    <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 11px;background:#0ea5e9;color:#fff;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;" title="폴더 전체 일괄 측정">
+      📁 폴더 열기<input type="file" id="folderInput" accept=".dcm" multiple webkitdirectory style="display:none">
+    </label>
+    <button class="top-btn" id="showResultsBtn">📋 결과 보기</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- ── SIDEBAR ── -->
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+      <div class="sec">측정 정보</div>
+      <div class="meta-block">
+        <div class="meta-row"><label>파일명</label><input type="text" id="metaFile" readonly placeholder="파일 로드 후 자동" style="color:#64748b"></div>
+        <div class="meta-row"><label>측정일</label><input type="date" id="metaDate"></div>
+        <div class="meta-row"><label>측정자</label><input type="text" id="metaUser" placeholder="이름 입력"></div>
+        <div class="meta-row"><label>환자ID</label><input type="text" id="metaPID" placeholder="(선택)"></div>
+      </div>
+
+      <div class="ps-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:#64748b;font-weight:700;font-size:9px;letter-spacing:1px;text-transform:uppercase">픽셀간격</span>
+          <span id="psStatusBadge" style="padding:1px 7px;border-radius:7px;font-size:9px;font-weight:700;background:#1e2a3a;color:#64748b">파일 없음</span>
+        </div>
+        <div class="ps-row"><span class="ps-key">대표값</span><span id="psVal" style="color:#38bdf8;font-weight:700">-</span></div>
+        <div class="ps-row"><span class="ps-key">행/열</span><span id="psRowCol" style="color:#94a3b8">-</span></div>
+        <div class="ps-row"><span class="ps-key">출처</span><span id="psSrc" style="color:#94a3b8">-</span></div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="sec">측정 단계</div>
+
+      <!-- Step 0: MP head -->
+      <div id="card0" class="scard" style="border-left-color:#fb923c">
+        <div class="clabel" style="color:#fb923c">① MP Head
+          <span class="badge" id="badge0">0/3점</span></div>
+        <div class="plist" id="plist0"><div class="empty">p1, p2, p3 클릭</div></div>
+        <div id="cinfo0" class="cinfo"><div class="empty">3점 후 c1, r1 표시</div></div>
+      </div>
+
+      <!-- Step 1: DP -->
+      <div id="card1" class="scard waiting" style="border-left-color:#38bdf8">
+        <div class="clabel" style="color:#38bdf8">② DP
+          <span class="badge" id="badge1">0/3점</span></div>
+        <div class="plist" id="plist1"><div class="empty">p4(tip), p5(volar), p6(dorsal)</div></div>
+        <div id="cinfo1" class="cinfo"><div class="empty">3점 후 DP 결과 표시</div></div>
+      </div>
+
+      <!-- Step 2: MP base -->
+      <div id="card2" class="scard waiting" style="border-left-color:#c084fc">
+        <div class="clabel" style="color:#c084fc">③ MP Base
+          <span class="badge" id="badge2">0/3점</span></div>
+        <div class="plist" id="plist2"><div class="empty">p8(volar), p9, p10(dorsal)</div></div>
+        <div id="cinfo2" class="cinfo"><div class="empty">3점 후 c2, r3 표시</div></div>
+      </div>
+
+      <!-- Step 3: PP -->
+      <div id="card3" class="scard waiting" style="border-left-color:#4ade80">
+        <div class="clabel" style="color:#4ade80">④ PP
+          <span class="badge" id="badge3">0/2점</span></div>
+        <div class="plist" id="plist3"><div class="empty">p11(volar), p12(dorsal)</div></div>
+        <div id="cinfo3" class="cinfo"><div class="empty">2점 후 PP 결과 표시</div></div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="sec">측정 결과 요약</div>
+      <div class="res-block">
+        <div class="drow" style="background:rgba(251,146,60,0.08)">
+          <span class="dl" style="color:#fb923c">r1 · radius of MP head</span><span class="dv" id="res_r1" style="color:#fdba74">-</span></div>
+        <div class="drow" style="background:rgba(56,189,248,0.08)">
+          <span class="dl" style="color:#38bdf8">r2 · radius of DP base</span><span class="dv" id="res_r2" style="color:#7dd3fc">-</span></div>
+        <div class="drow" style="background:rgba(56,189,248,0.08)">
+          <span class="dl" style="color:#38bdf8">DP base arc length</span><span class="dv" id="res_dpArc">-</span></div>
+        <div class="drow" style="background:rgba(56,189,248,0.08)">
+          <span class="dl" style="color:#38bdf8">DP base coverage angle</span><span class="dv" id="res_dpCov">-</span></div>
+        <div class="drow" style="background:rgba(56,189,248,0.08)">
+          <span class="dl" style="color:#38bdf8">gap · DP base arc</span><span class="dv" id="res_dpGap">-</span></div>
+        <div class="drow hi" style="background:rgba(251,191,36,0.10)">
+          <span class="dl" style="color:#fbbf24;font-weight:700">DIPJ thickness (r2−r1)</span><span class="dv" id="res_dipjT" style="color:#fbbf24;font-size:12px">-</span></div>
+        <div class="drow" style="background:rgba(192,132,252,0.08)">
+          <span class="dl" style="color:#c084fc">r3 · radius of MP base</span><span class="dv" id="res_r3" style="color:#d8b4fe">-</span></div>
+        <div class="drow" style="background:rgba(74,222,128,0.08)">
+          <span class="dl" style="color:#4ade80">r4 · radius of PP head</span><span class="dv" id="res_r4" style="color:#86efac">-</span></div>
+        <div class="drow" style="background:rgba(74,222,128,0.08)">
+          <span class="dl" style="color:#4ade80">MP base arc length</span><span class="dv" id="res_ppArc">-</span></div>
+        <div class="drow" style="background:rgba(74,222,128,0.08)">
+          <span class="dl" style="color:#4ade80">MP base coverage angle</span><span class="dv" id="res_ppCov">-</span></div>
+        <div class="drow" style="background:rgba(74,222,128,0.08)">
+          <span class="dl" style="color:#4ade80">gap · PP head</span><span class="dv" id="res_ppGap">-</span></div>
+        <div class="drow hi" style="background:rgba(251,191,36,0.10)">
+          <span class="dl" style="color:#fbbf24;font-weight:700">PIPJ thickness (r3−r4)</span><span class="dv" id="res_pipjT" style="color:#fbbf24;font-size:12px">-</span></div>
+        <div class="drow hi" style="background:rgba(251,191,36,0.13)">
+          <span class="dl" style="color:#fbbf24;font-weight:700">length of MP (L1+r1−r3)</span><span class="dv" id="res_mpLen" style="color:#fbbf24;font-size:12px">-</span></div>
+        <div class="drow hi" style="background:rgba(251,191,36,0.13)">
+          <span class="dl" style="color:#fbbf24;font-weight:700">length of DP (L2−r2)</span><span class="dv" id="res_dpLen" style="color:#fbbf24;font-size:12px">-</span></div>
+        <div class="drow hi" style="background:rgba(74,222,128,0.13)">
+          <span class="dl" style="color:#4ade80;font-weight:700">DIPJ extension angle</span><span class="dv" id="res_dipjA" style="color:#4ade80;font-size:12px">-</span></div>
+      </div>
+
+      <div class="sep"></div>
+      <div class="sec">조작</div>
+      <button class="btn btn-green" id="saveBtn">💾 측정 결과 저장</button>
+      <label class="file-label-sec">📂 새 파일 열기<input type="file" id="fileInput" accept=".dcm"></label>
+      <button class="btn" style="background:#1e3a5f;color:#cbd5e1;margin-bottom:3px" id="undoBtn">↩ 마지막 점 삭제</button>
+      <button class="btn btn-warn" id="clearBtn">🗑 측정 초기화</button>
+    </div>
+  </div>
+
+  <!-- ── CANVAS ── -->
+  <div class="canvas-area" id="canvasArea">
+    <canvas id="mainCanvas"></canvas>
+    <div class="dropzone" id="dropzone">
+      <div class="drop-icon">🩻</div>
+      <div class="drop-text">DICOM 파일을 드래그하거나</div>
+      <label class="file-label-drop">📂 파일 선택<input type="file" id="fileInput2" accept=".dcm"></label>
+      <div class="drop-sub">지원 형식: .dcm</div>
+      <div class="drop-overlay" id="dropOverlay"></div>
+    </div>
+    <div class="hint" id="hint" style="display:none"></div>
+    <div class="zctrls" id="zctrls" style="display:none">
+      <div class="zbtn" id="zIn">+</div>
+      <div class="zbtn" id="zOut">−</div>
+      <div class="zbtn" id="zReset">⊙</div>
+      <div class="zoom-pct" id="zoomPct">100%</div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2 style="color:#4fc3f7">📋 저장된 측정 결과</h2>
+    <div class="modal-actions">
+      <button class="btn-csv" id="csvBtn">⬇ CSV 내보내기</button>
+      <button style="background:#3d1818;color:#f87171" id="clearAllBtn">🗑 전체 삭제</button>
+      <button style="background:#1e3a5f;color:#cbd5e1;margin-left:auto" id="closeModalBtn">✕ 닫기</button>
+    </div>
+    <div class="tbl-wrap">
+      <table><thead><tr>
+        <th>#</th><th>측정일</th><th>측정자</th><th>환자ID</th><th>파일명</th>
+        <th>PS(mm/px)</th><th>PS출처</th>
+        <th>r1 MP head</th><th>r2 DP base</th>
+        <th>DP arc</th><th>DP cov°</th><th>DP gap</th>
+        <th>DIPJ thickness</th>
+        <th>r3 MP base</th><th>r4 PP head</th>
+        <th>MP base arc</th><th>MP base cov°</th><th>PP gap</th>
+        <th>PIPJ thickness</th>
+        <th>MP length</th><th>DP length</th>
+        <th>DIPJ ext°</th><th>삭제</th>
+      </tr></thead><tbody id="resultTbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const PS_DEFAULT=0.148;
+const PS_ANISO_THRESH=0.005;
+const STORAGE_KEY='dicom_v5';
+
+// step별 필요 점수: [3, 3, 3, 2]
+const SPT=[3,3,3,2];
+const SC=['#fb923c','#38bdf8','#c084fc','#4ade80'];
+// 각 step의 점 색상
+const DC=[
+  ['#fdba74','#fb923c','#f97316'],        // p1,p2,p3
+  ['#7dd3fc','#38bdf8','#0ea5e9'],        // p4,p5,p6
+  ['#d8b4fe','#c084fc','#9333ea'],        // p8,p9,p10
+  ['#86efac','#4ade80']                   // p11,p12
+];
+const PN=[
+  ['p1','p2','p3'],
+  ['p4(tip)','p5(volar)','p6(dorsal)'],
+  ['p8(volar)','p9','p10(dorsal)'],
+  ['p11(volar)','p12(dorsal)']
+];
+
+const state={
+  PS:PS_DEFAULT,psRow:PS_DEFAULT,psCol:PS_DEFAULT,
+  psSource:'기본값',psIsDefault:true,psAniso:false,
+  imgLoaded:false,currentFile:'',
+  scale:1,offsetX:0,offsetY:0,
+  isPanning:false,panStart:{x:0,y:0},panOff:{x:0,y:0},
+  pts:[[],[],[],[]]
+};
+
+let R={};
+function resetR(){
+  R={
+    c1px:null, r1:null,                           // MP head
+    r2:null, p7px:null, dpArcLen:null, dpCovAngle:null, dpGap:null, dipjThickness:null, // DP
+    c2px:null, r3:null,                           // MP base
+    r4:null, p13px:null, ppArcLen:null, ppCovAngle:null, ppGap:null, pipjThickness:null, // PP
+    L1:null, mpLen:null,                          // MP length
+    L2:null, dpLen:null,                          // DP length
+    dipjAngle:null                                // DIPJ extension
+  };
+}
+resetR();
+
+const canvas=document.getElementById('mainCanvas');
+const ctx=canvas.getContext('2d');
+const area=document.getElementById('canvasArea');
+const dz=document.getElementById('dropzone');
+const hint=document.getElementById('hint');
+const zctrls=document.getElementById('zctrls');
+const zoomPct=document.getElementById('zoomPct');
+let img=new Image(); // recreated on each load to avoid cache issues
+
+function toImg(sx,sy){return{x:(sx-state.offsetX)/state.scale,y:(sy-state.offsetY)/state.scale};}
+function toScr(ix,iy){return{x:ix*state.scale+state.offsetX,y:iy*state.scale+state.offsetY};}
+function fit(){
+  const w=area.clientWidth,h=area.clientHeight;
+  state.scale=Math.min(w/img.width,h/img.height)*0.92;
+  state.offsetX=(w-img.width*state.scale)/2;
+  state.offsetY=(h-img.height*state.scale)/2;
+}
+function px2mm(px){return px*state.PS;}
+function dist(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);}
+
+function circumcircle3(p1,p2,p3){
+  const ax=p1.x,ay=p1.y,bx=p2.x,by=p2.y,cx=p3.x,cy=p3.y;
+  const D=2*(ax*(by-cy)+bx*(cy-ay)+cx*(ay-by));
+  if(Math.abs(D)<1e-10)return null;
+  const s1=ax*ax+ay*ay,s2=bx*bx+by*by,s3=cx*cx+cy*cy;
+  const ux=(s1*(by-cy)+s2*(cy-ay)+s3*(ay-by))/D;
+  const uy=(s1*(cx-bx)+s2*(ax-cx)+s3*(bx-ax))/D;
+  return{cx:ux,cy:uy,r:Math.sqrt((ax-ux)**2+(ay-uy)**2)};
+}
+
+// 원 위의 두 점 사이 호: 짧은 쪽 각도(rad) 반환
+function arcAngle(cx,cy,ax,ay,bx,by){
+  const a1=Math.atan2(ay-cy,ax-cx),a2=Math.atan2(by-cy,bx-cx);
+  let da=Math.abs(a2-a1);
+  if(da>Math.PI)da=2*Math.PI-da;
+  return da;
+}
+
+// 원(center cx,cy, radius r)과 직선(center→pt) 교점 중 pt에 가까운 것
+function circleLineIntersectNear(cx,cy,r,px,py){
+  const dx=px-cx,dy=py-cy,len=Math.sqrt(dx*dx+dy*dy);
+  if(len<1e-10)return null;
+  const ux=dx/len,uy=dy/len;
+  const q1={x:cx+r*ux,y:cy+r*uy},q2={x:cx-r*ux,y:cy-r*uy};
+  const d1=dist({x:px,y:py},q1),d2=dist({x:px,y:py},q2);
+  return d1<=d2?q1:q2;
+}
+
+// ── DICOM parser ──
+function parseDicom(buffer){
+  const data=new Uint8Array(buffer),view=new DataView(buffer);
+  if(data.length<132)return null;
+  if(String.fromCharCode(data[128],data[129],data[130],data[131])!=='DICM')return null;
+  const EV=new Set(['AE','AS','AT','CS','DA','DS','DT','FL','FD','IS','LO','LT','OB','OD','OF','OW','PN','SH','SL','SQ','SS','ST','TM','UC','UI','UL','UN','UR','US','UT']);
+  // findTag: returns LAST occurrence (handles files with icon/thumbnail + real image)
+  function findTag(g,e){
+    const b0=g&0xff,b1=(g>>8)&0xff,b2=e&0xff,b3=(e>>8)&0xff;
+    let last=-1;
+    for(let p=132;p<data.length-12;p++){
+      if(data[p]===b0&&data[p+1]===b1&&data[p+2]===b2&&data[p+3]===b3)last=p;
+    }
+    return last;
+  }
+  // findFirstTag: returns first occurrence (for tags that only appear once)
+  function findFirstTag(g,e){
+    const b0=g&0xff,b1=(g>>8)&0xff,b2=e&0xff,b3=(e>>8)&0xff;
+    for(let p=132;p<data.length-12;p++){
+      if(data[p]===b0&&data[p+1]===b1&&data[p+2]===b2&&data[p+3]===b3)return p;
+    }
+    return -1;
+  }
+  function readStr(g,e){const p=findTag(g,e);if(p<0)return null;const vr=String.fromCharCode(data[p+4],data[p+5]);let len,start;if(EV.has(vr)){if(['OB','OD','OF','OW','SQ','UC','UN','UR','UT'].includes(vr)){len=view.getUint32(p+8,true);start=p+12;}else{len=view.getUint16(p+6,true);start=p+8;}}else{len=view.getUint32(p+4,true);start=p+8;}if(len<=0||len>4096||start+len>data.length)return null;let s='';for(let i=0;i<len;i++)s+=String.fromCharCode(data[start+i]);return s.replace(/\0/g,'').trim();}
+  function readUS(g,e){const p=findTag(g,e);if(p<0)return null;const vr=String.fromCharCode(data[p+4],data[p+5]);if(vr==='US')return view.getUint16(p+8,true);const len=view.getUint32(p+4,true);if(len===2)return view.getUint16(p+8,true);return null;}
+  // Collect ALL occurrences of image dimension tags (handles files with embedded thumbnails)
+  function findAllUS(g,e){
+    const b0=g&0xff,b1=(g>>8)&0xff,b2=e&0xff,b3=(e>>8)&0xff,vals=[];
+    for(let p=132;p<data.length-12;p++){
+      if(data[p]===b0&&data[p+1]===b1&&data[p+2]===b2&&data[p+3]===b3){
+        if(String.fromCharCode(data[p+4],data[p+5])==='US')vals.push(view.getUint16(p+8,true));
+      }
+    }
+    return vals;
+  }
+  function findAllStr(g,e){
+    const b0=g&0xff,b1=(g>>8)&0xff,b2=e&0xff,b3=(e>>8)&0xff,vals=[];
+    for(let p=132;p<data.length-12;p++){
+      if(data[p]===b0&&data[p+1]===b1&&data[p+2]===b2&&data[p+3]===b3){
+        const vr=String.fromCharCode(data[p+4],data[p+5]);
+        let len,start;
+        if(['OB','OD','OF','OW','SQ','UC','UN','UR','UT'].includes(vr)){len=view.getUint32(p+8,true);start=p+12;}
+        else if(EV.has(vr)){len=view.getUint16(p+6,true);start=p+8;}
+        else{len=view.getUint32(p+4,true);start=p+8;}
+        if(len>0&&len<=4096&&start+len<=data.length){
+          let s='';for(let i=0;i<len;i++)s+=String.fromCharCode(data[start+i]);
+          vals.push(s.replace(/ /g,'').trim());
+        }
+      }
+    }
+    return vals;
+  }
+  const allRows=findAllUS(0x0028,0x0010);
+  const allCols=findAllUS(0x0028,0x0011);
+  const allBits=findAllUS(0x0028,0x0100);
+  const allRep=findAllUS(0x0028,0x0103);
+  const allPhoto=findAllStr(0x0028,0x0004);
+
+  // Find pixel data declared length to pick matching rows/cols/bits
+  const pdpTmp=findTag(0x7FE0,0x0010);
+  let pixLenTmp=0;
+  if(pdpTmp>=0){
+    const pvrT=String.fromCharCode(data[pdpTmp+4],data[pdpTmp+5]);
+    const dl=(pvrT==='OW'||pvrT==='OB')?view.getUint32(pdpTmp+8,true):view.getUint32(pdpTmp+4,true);
+    pixLenTmp=(dl===0xFFFFFFFF)?(data.length-pdpTmp):Math.min(dl,data.length-pdpTmp);
+  }
+
+  // Pick rows/cols/bits combination whose rows*cols*(bits/8) best matches pixLenTmp
+  let rows=allRows[0]||512,cols=allCols[0]||512,bitsAl=allBits[0]||16,pixRep=allRep[0]||0;
+  let bestDiff=Infinity;
+  for(let ri=0;ri<allRows.length;ri++){
+    for(let ci=0;ci<allCols.length;ci++){
+      for(let bi=0;bi<(allBits.length||1);bi++){
+        const b=allBits[bi]||16;
+        const expected=allRows[ri]*allCols[ci]*(b/8);
+        const diff=Math.abs(expected-pixLenTmp);
+        if(diff<bestDiff){
+          bestDiff=diff;rows=allRows[ri];cols=allCols[ci];bitsAl=b;
+          pixRep=allRep[bi]!==undefined?allRep[bi]:(allRep[0]||0);
+        }
+      }
+    }
+  }
+  const photoInterp=allPhoto[allPhoto.length-1]||allPhoto[0]||'';
+  let psRow=PS_DEFAULT,psCol=PS_DEFAULT,psSource='기본값(헤더미인식)',psWarn=null,psIsDefault=true,psAniso=false;
+  const psStr=readStr(0x0028,0x0030)||readStr(0x0018,0x1164);
+  if(psStr){
+    const parts=psStr.split('\\');
+    const r=parseFloat(parts[0]),c=parseFloat(parts.length>1?parts[1]:parts[0]);
+    if(!isNaN(r)&&r>0&&!isNaN(c)&&c>0){
+      psRow=r;psCol=c;psIsDefault=false;psSource='DICOM헤더';
+      if(Math.abs(r-c)>PS_ANISO_THRESH){psAniso=true;psWarn='비등방성 픽셀간격: 행='+r.toFixed(4)+' / 열='+c.toFixed(4)+' mm/px';}
+    }
+  }
+  const pdp=findTag(0x7FE0,0x0010);if(pdp<0)return null;
+  let pixStart,pixLen;
+  const pvr=String.fromCharCode(data[pdp+4],data[pdp+5]);
+  if(pvr==='OW'||pvr==='OB'){
+    const declaredLen=view.getUint32(pdp+8,true);
+    // 0xFFFFFFFF = undefined length → Encapsulated (sequence of items)
+    if(declaredLen===0xFFFFFFFF){
+      // Skip sequence items: scan for Item tags (FFFE,E000) and collect fragments
+      // For uncompressed encapsulated, concatenate all Item payloads
+      pixStart=-1; pixLen=0;
+      let p=pdp+12;
+      const fragBufs=[];
+      while(p+8<=data.length){
+        const t0=data[p],t1=data[p+1],t2=data[p+2],t3=data[p+3];
+        const iLen=view.getUint32(p+4,true);
+        // Item tag: FFFE,E000
+        if(t0===0xFE&&t1===0xFF&&t2===0x00&&t3===0xE0){
+          if(iLen>0&&iLen!==0xFFFFFFFF&&p+8+iLen<=data.length){
+            if(pixStart<0)pixStart=p+8; // first fragment start
+            fragBufs.push(data.slice(p+8,p+8+iLen));
+            pixLen+=iLen;
+          }
+          p+=8+(iLen===0xFFFFFFFF?0:iLen);
+        }
+        // Sequence Delimiter: FFFE,E0DD
+        else if(t0===0xFE&&t1===0xFF&&t2===0xDD&&t3===0xE0){break;}
+        else{p++;} // unexpected, advance byte by byte
+      }
+      // Reassemble fragments into a single flat buffer if needed
+      if(fragBufs.length>1){
+        const flat=new Uint8Array(pixLen);
+        let off=0;
+        for(const fb of fragBufs){flat.set(fb,off);off+=fb.length;}
+        // Attach as special property for use below
+        parseDicom._encapBuf=flat;
+      } else {
+        parseDicom._encapBuf=null;
+      }
+    } else {
+      // Normal explicit length
+      pixLen=declaredLen;
+      pixStart=pdp+12;
+      parseDicom._encapBuf=null;
+    }
+  } else {
+    pixLen=view.getUint32(pdp+4,true);
+    pixStart=pdp+8;
+    parseDicom._encapBuf=null;
+  }
+  if(pixStart<0)return null;
+  if(pixStart+pixLen>data.length)pixLen=data.length-pixStart;
+  // Use reassembled encapsulated buffer if available, else slice from data
+  let rawBuf;
+  if(parseDicom._encapBuf){
+    rawBuf=parseDicom._encapBuf.buffer.slice(
+      parseDicom._encapBuf.byteOffset,
+      parseDicom._encapBuf.byteOffset+parseDicom._encapBuf.byteLength);
+  } else {
+    const raw=data.slice(pixStart,pixStart+pixLen);
+    rawBuf=raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);
+  }
+  const buf=rawBuf;
+  let pixels;
+  if(bitsAl<=8)pixels=new Uint8Array(buf);else if(pixRep===1)pixels=new Int16Array(buf);else pixels=new Uint16Array(buf);
+  if(pixels.length<rows*cols){pixLen=pixels.length;}// use what we have
+  const tmp=Array.from(pixels.slice(0,Math.min(pixels.length,rows*cols))).sort((a,b)=>a-b);
+  const p1v=tmp[Math.floor(tmp.length*0.01)],p99=tmp[Math.floor(tmp.length*0.99)],clip=p99-p1v||1;
+  const offC=document.createElement('canvas');offC.width=cols;offC.height=rows;
+  const octx=offC.getContext('2d'),idata=octx.createImageData(cols,rows);
+  const invert=photoInterp.trim().toUpperCase()==='MONOCHROME1';
+  for(let i=0;i<rows*cols;i++){
+    let v=Math.min(255,Math.max(0,Math.round((pixels[i]-p1v)/clip*255)));
+    if(invert)v=255-v;
+    idata.data[i*4]=v;idata.data[i*4+1]=v;idata.data[i*4+2]=v;idata.data[i*4+3]=255;
+  }
+  octx.putImageData(idata,0,0);
+  return{dataUrl:offC.toDataURL(),ps:psRow,psRow,psCol,psSource,psIsDefault,psAniso,psWarn,rows,cols};
+}
+
+// ── Compute ──
+function compute(){
+  resetR();
+  const pts=state.pts;
+
+  // ① MP head → c1, r1
+  if(pts[0].length===3){
+    const cc=circumcircle3(pts[0][0],pts[0][1],pts[0][2]);
+    if(cc){R.c1px=cc;R.r1=px2mm(cc.r);}
+  }
+
+  // ② DP
+  if(R.c1px&&pts[1].length>=2){
+    const p5=pts[1][1];
+    const r2px=dist({x:R.c1px.cx,y:R.c1px.cy},p5);
+    R.r2=px2mm(r2px);
+    if(R.r1!==null)R.dipjThickness=R.r2-R.r1;
+
+    if(pts[1].length===3){
+      const p6=pts[1][2];
+      const p7=circleLineIntersectNear(R.c1px.cx,R.c1px.cy,r2px,p6.x,p6.y);
+      if(p7){
+        R.p7px=p7;
+        const da=arcAngle(R.c1px.cx,R.c1px.cy,p5.x,p5.y,p7.x,p7.y);
+        R.dpArcLen=px2mm(r2px*da);
+        R.dpCovAngle=da*180/Math.PI;
+        // gap signed: + if dist(c1,p6)>r2 (p6 outside circle), - if inside
+        const c1p6=dist({x:R.c1px.cx,y:R.c1px.cy},p6);
+        const dpGapAbs=px2mm(dist(p6,p7));
+        R.dpGap=(c1p6>=r2px?1:-1)*dpGapAbs;
+      }
+    }
+  }
+  // L2 = dist(p4, c1); length of DP = L2 - r2
+  if(R.c1px&&pts[1].length>=1){
+    const p4=pts[1][0];
+    R.L2=px2mm(dist({x:R.c1px.cx,y:R.c1px.cy},p4));
+    if(R.r2!==null)R.dpLen=R.L2-R.r2;
+  }
+
+  // ③ MP base → c2, r3
+  if(pts[2].length===3){
+    const cc=circumcircle3(pts[2][0],pts[2][1],pts[2][2]);
+    if(cc){R.c2px=cc;R.r3=px2mm(cc.r);}
+  }
+
+  // ④ PP
+  if(R.c2px&&pts[3].length>=1){
+    const p11=pts[3][0];
+    const r4px=dist({x:R.c2px.cx,y:R.c2px.cy},p11);
+    R.r4=px2mm(r4px);
+    if(R.r3!==null)R.pipjThickness=R.r3-R.r4;
+
+    if(pts[3].length===2){
+      const p12=pts[3][1];
+      // p13: intersection of c2-circle(r4) with line c2→p12, closer to p12
+      const p13=circleLineIntersectNear(R.c2px.cx,R.c2px.cy,r4px,p12.x,p12.y);
+      if(p13){
+        R.p13px=p13;
+        // gap signed: + if dist(c2,p12)>r4 (p12 outside circle), - if inside
+        const c2p12=dist({x:R.c2px.cx,y:R.c2px.cy},p12);
+        const ppGapAbs=px2mm(dist(p12,p13));
+        R.ppGap=(c2p12>=r4px?1:-1)*ppGapAbs;
+      }
+      // MP base coverage angle: arc p8↔p10 on c2 circumcircle (r3), passing through p9
+      if(pts[2].length===3){
+        const p8=pts[2][0],p9=pts[2][1],p10=pts[2][2];
+        const r3px=R.c2px.r; // circumcircle radius in px
+        const da=arcAngle(R.c2px.cx,R.c2px.cy,p8.x,p8.y,p10.x,p10.y);
+        R.ppArcLen=px2mm(r3px*da);
+        R.ppCovAngle=da*180/Math.PI;
+      }
+    }
+  }
+
+  // ⑤ length of MP = L1 + r1 - r3
+  if(R.c1px&&R.c2px&&R.r1!==null&&R.r3!==null){
+    R.L1=px2mm(dist({x:R.c1px.cx,y:R.c1px.cy},{x:R.c2px.cx,y:R.c2px.cy}));
+    R.mpLen=R.L1+R.r1-R.r3;
+  }
+
+  // ⑦ DIPJ extension angle: angle between L1(c1→c2) and L2(c1→p4)
+  if(R.c1px&&R.c2px&&pts[1].length>=1){
+    const c1={x:R.c1px.cx,y:R.c1px.cy},c2={x:R.c2px.cx,y:R.c2px.cy},p4=pts[1][0];
+    const v1={x:c2.x-c1.x,y:c2.y-c1.y},v2={x:p4.x-c1.x,y:p4.y-c1.y};
+    const dot=v1.x*v2.x+v1.y*v2.y;
+    const m1=Math.sqrt(v1.x**2+v1.y**2),m2=Math.sqrt(v2.x**2+v2.y**2);
+    if(m1>1e-10&&m2>1e-10){
+      let cosA=Math.max(-1,Math.min(1,dot/(m1*m2)));
+      let a=Math.acos(cosA)*180/Math.PI;
+      if(a>90)a=180-a;
+      R.dipjAngle=a;
+    }
+  }
+}
+
+function activeStep(){for(let i=0;i<4;i++){if(state.pts[i].length<SPT[i])return i;}return 4;}
+
+// ── Draw ──
+function label(text,x,y,col){
+  ctx.save();ctx.font='bold 10px Segoe UI';
+  const tw=ctx.measureText(text).width;
+  ctx.fillStyle='rgba(5,8,18,0.82)';ctx.fillRect(x+4,y-13,tw+6,15);
+  ctx.fillStyle=col||'#fff';ctx.fillText(text,x+7,y-1);ctx.restore();
+}
+function crosshair(sx,sy,col){
+  ctx.save();ctx.strokeStyle=col+'99';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(sx-9,sy);ctx.lineTo(sx+9,sy);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(sx,sy-9);ctx.lineTo(sx,sy+9);ctx.stroke();
+  ctx.restore();
+}
+function drawCircle(cx,cy,r,col,dash){
+  ctx.save();ctx.strokeStyle=col;ctx.lineWidth=1;ctx.setLineDash(dash||[]);
+  ctx.beginPath();ctx.arc(cx,cy,r,0,2*Math.PI);ctx.stroke();ctx.restore();
+}
+function drawLine(ax,ay,bx,by,col,dash){
+  ctx.save();ctx.strokeStyle=col;ctx.lineWidth=1;ctx.setLineDash(dash||[4,3]);
+  ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();ctx.restore();
+}
+function drawArc(cx,cy,r,p1x,p1y,p2x,p2y,col,lw){
+  const a1=Math.atan2(p1y-cy,p1x-cx),a2=Math.atan2(p2y-cy,p2x-cx);
+  let diff=a2-a1;while(diff>Math.PI)diff-=2*Math.PI;while(diff<-Math.PI)diff+=2*Math.PI;
+  ctx.save();ctx.strokeStyle=col;ctx.lineWidth=lw||2.5;ctx.setLineDash([]);
+  ctx.beginPath();
+  if(diff>=0)ctx.arc(cx,cy,r,a1,a2,false);else ctx.arc(cx,cy,r,a1,a2,true);
+  ctx.stroke();ctx.restore();
+}
+function dot(sx,sy,col,r){
+  ctx.save();ctx.fillStyle=col;ctx.beginPath();ctx.arc(sx,sy,r||4,0,2*Math.PI);ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.4)';ctx.lineWidth=0.8;ctx.stroke();ctx.restore();
+}
+
+function redraw(){
+  canvas.width=area.clientWidth;canvas.height=area.clientHeight;
+  if(zoomPct)zoomPct.textContent=Math.round(state.scale*100)+'%';
+  if(!state.imgLoaded)return;
+  ctx.drawImage(img,state.offsetX,state.offsetY,img.width*state.scale,img.height*state.scale);
+
+  // c1 circle (MP head)
+  if(R.c1px){
+    const s=toScr(R.c1px.cx,R.c1px.cy),r=R.c1px.r*state.scale;
+    drawCircle(s.x,s.y,r,'#fb923c');
+    crosshair(s.x,s.y,'#fb923c');
+    label('c1',s.x,s.y-r-4,'#fb923c');
+  }
+  // c2 circle (MP base)
+  if(R.c2px){
+    const s=toScr(R.c2px.cx,R.c2px.cy),r=R.c2px.r*state.scale;
+    drawCircle(s.x,s.y,r,'#c084fc');
+    crosshair(s.x,s.y,'#c084fc');
+    label('c2',s.x,s.y-r-4,'#c084fc');
+  }
+  // DP base circle (c1 center, r2 radius) — shown only after p6 is clicked
+  if(R.c1px&&R.r2!==null&&state.pts[1].length===3){
+    const s=toScr(R.c1px.cx,R.c1px.cy);
+    const r2px=dist({x:R.c1px.cx,y:R.c1px.cy},state.pts[1][1])*state.scale;
+    drawCircle(s.x,s.y,r2px,'#38bdf8',[3,2]);
+  }
+  // PP head circle (c2 center, r4 radius) — shown only after p12 is clicked
+  if(R.c2px&&R.r4!==null&&state.pts[3].length===2){
+    const s=toScr(R.c2px.cx,R.c2px.cy);
+    const r4px=dist({x:R.c2px.cx,y:R.c2px.cy},state.pts[3][0])*state.scale;
+    drawCircle(s.x,s.y,r4px,'#4ade80',[3,2]);
+  }
+  // L1: c1→c2
+  if(R.c1px&&R.c2px){
+    const a=toScr(R.c1px.cx,R.c1px.cy),b=toScr(R.c2px.cx,R.c2px.cy);
+    drawLine(a.x,a.y,b.x,b.y,'rgba(251,191,36,0.5)');
+  }
+  // L2: c1→p4
+  if(R.c1px&&state.pts[1].length>=1){
+    const a=toScr(R.c1px.cx,R.c1px.cy),b=toScr(state.pts[1][0].x,state.pts[1][0].y);
+    drawLine(a.x,a.y,b.x,b.y,'rgba(56,189,248,0.45)');
+  }
+  // p6→c1 guide line
+  if(R.c1px&&state.pts[1].length>=3){
+    const a=toScr(state.pts[1][2].x,state.pts[1][2].y),b=toScr(R.c1px.cx,R.c1px.cy);
+    drawLine(a.x,a.y,b.x,b.y,'rgba(56,189,248,0.22)',[3,5]);
+  }
+  // p12→c2 guide line
+  if(R.c2px&&state.pts[3].length>=2){
+    const a=toScr(state.pts[3][1].x,state.pts[3][1].y),b=toScr(R.c2px.cx,R.c2px.cy);
+    drawLine(a.x,a.y,b.x,b.y,'rgba(74,222,128,0.22)',[3,5]);
+  }
+  // DP arc (p5→p7 on c1-circle, yellow) + gap line p6↔p7
+  if(R.c1px&&state.pts[1].length>=2&&R.p7px){
+    const c=toScr(R.c1px.cx,R.c1px.cy);
+    const r2px=dist({x:R.c1px.cx,y:R.c1px.cy},state.pts[1][1])*state.scale;
+    const p5i=state.pts[1][1],p7i=R.p7px;
+    const p5s=toScr(p5i.x,p5i.y),p7s=toScr(p7i.x,p7i.y);
+    // arc p5→p7
+    const a5=Math.atan2(p5s.y-c.y,p5s.x-c.x);
+    const a7=Math.atan2(p7s.y-c.y,p7s.x-c.x);
+    let diff=a7-a5;
+    while(diff>Math.PI)diff-=2*Math.PI;
+    while(diff<-Math.PI)diff+=2*Math.PI;
+    ctx.save();ctx.strokeStyle='#fbbf24';ctx.lineWidth=2.5;ctx.setLineDash([]);
+    ctx.beginPath();
+    if(diff>=0)ctx.arc(c.x,c.y,r2px,a5,a7,false);
+    else ctx.arc(c.x,c.y,r2px,a5,a7,true);
+    ctx.stroke();ctx.restore();
+    dot(p7s.x,p7s.y,'#fbbf24',4);
+    label('p7',p7s.x,p7s.y-6,'#fbbf24');
+    // coverage angle label
+    if(R.dpCovAngle!==null){
+      const txt=R.dpCovAngle.toFixed(1)+'°';
+      ctx.save();ctx.font='bold 11px sans-serif';const tw=ctx.measureText(txt).width;
+      ctx.fillStyle='rgba(5,8,16,0.88)';ctx.fillRect(c.x-tw/2-5,c.y-26,tw+10,18);
+      ctx.fillStyle='#fde68a';ctx.textAlign='center';ctx.fillText(txt,c.x,c.y-12);ctx.restore();
+    }
+    // gap line p6↔p7 (red dashed)
+    if(state.pts[1].length>=3&&R.dpGap!==null){
+      const p6s=toScr(state.pts[1][2].x,state.pts[1][2].y);
+      ctx.save();ctx.strokeStyle='#f87171';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(p6s.x,p6s.y);ctx.lineTo(p7s.x,p7s.y);ctx.stroke();ctx.restore();
+      const mx=(p6s.x+p7s.x)/2,my=(p6s.y+p7s.y)/2;
+      const dpGapSign=R.dpGap>=0?'+':'';
+      const gtxt='gap:'+(dpGapSign+R.dpGap.toFixed(2))+'mm';
+      ctx.save();ctx.font='bold 9px Segoe UI';const gw=ctx.measureText(gtxt).width;
+      ctx.fillStyle='rgba(5,8,16,0.85)';ctx.fillRect(mx-gw/2-3,my-13,gw+6,14);
+      ctx.fillStyle='#f87171';ctx.textAlign='center';ctx.fillText(gtxt,mx,my-2);ctx.restore();
+    }
+  }
+  // MP base coverage arc (p8→p9→p10 on c2 circumcircle, green) + gap line p12↔p13
+  if(R.c2px&&state.pts[3].length===2){
+    const cx2=R.c2px.cx,cy2=R.c2px.cy;
+    const c=toScr(cx2,cy2);
+    const r3px=R.c2px.r*state.scale; // circumcircle radius = r3
+    if(state.pts[2].length===3&&R.ppCovAngle!==null){
+      const p8i=state.pts[2][0],p9i=state.pts[2][1],p10i=state.pts[2][2];
+      const a8=Math.atan2(p8i.y-cy2,p8i.x-cx2);
+      const a9=Math.atan2(p9i.y-cy2,p9i.x-cx2);
+      const a10=Math.atan2(p10i.y-cy2,p10i.x-cx2);
+      // choose direction (CCW or CW) that passes through p9
+      function normA(a,base){while(a<base)a+=2*Math.PI;return a;}
+      const a9ccw=normA(a9,a8),a10ccw=normA(a10,a8);
+      const useCCW=(a9ccw<=a10ccw);
+      ctx.save();ctx.strokeStyle='#4ade80';ctx.lineWidth=2.5;ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(c.x,c.y,r3px,a8,a10,!useCCW);
+      ctx.stroke();ctx.restore();
+      dot(c.x+r3px*Math.cos(a8),c.y+r3px*Math.sin(a8),'#4ade80',3);
+      dot(c.x+r3px*Math.cos(a10),c.y+r3px*Math.sin(a10),'#4ade80',3);
+      const txt=R.ppCovAngle.toFixed(1)+'°';
+      ctx.save();ctx.font='bold 11px sans-serif';const tw=ctx.measureText(txt).width;
+      ctx.fillStyle='rgba(5,8,16,0.88)';ctx.fillRect(c.x-tw/2-5,c.y+10,tw+10,18);
+      ctx.fillStyle='#86efac';ctx.textAlign='center';ctx.fillText(txt,c.x,c.y+24);ctx.restore();
+    }
+    if(R.p13px){
+      const p12s=toScr(state.pts[3][1].x,state.pts[3][1].y);
+      const p13s=toScr(R.p13px.x,R.p13px.y);
+      ctx.save();ctx.strokeStyle='#f87171';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.moveTo(p12s.x,p12s.y);ctx.lineTo(p13s.x,p13s.y);ctx.stroke();ctx.restore();
+      dot(p13s.x,p13s.y,'#4ade80',4);
+      label('p13',p13s.x,p13s.y-6,'#4ade80');
+      if(R.ppGap!==null){
+        const mx=(p12s.x+p13s.x)/2,my=(p12s.y+p13s.y)/2;
+        const ppGapSign=R.ppGap>=0?'+':'';
+        const gtxt='gap:'+(ppGapSign+R.ppGap.toFixed(2))+'mm';
+        ctx.save();ctx.font='bold 9px Segoe UI';const gw=ctx.measureText(gtxt).width;
+        ctx.fillStyle='rgba(5,8,16,0.85)';ctx.fillRect(mx-gw/2-3,my-13,gw+6,14);
+        ctx.fillStyle='#f87171';ctx.textAlign='center';ctx.fillText(gtxt,mx,my-2);ctx.restore();
+      }
+    }
+  }
+  // DIPJ angle annotation
+  if(R.dipjAngle!==null&&R.c1px){
+    const s=toScr(R.c1px.cx,R.c1px.cy);
+    const txt='DIPJ ext: '+R.dipjAngle.toFixed(1)+'°';
+    ctx.save();ctx.font='bold 11px sans-serif';const tw=ctx.measureText(txt).width;
+    ctx.fillStyle='rgba(5,8,16,0.9)';ctx.fillRect(s.x+12,s.y+10,tw+10,18);
+    ctx.fillStyle='#4ade80';ctx.fillText(txt,s.x+17,s.y+24);ctx.restore();
+  }
+  // All input points
+  state.pts.forEach(function(arr,si){
+    arr.forEach(function(pt,pi){
+      const s=toScr(pt.x,pt.y),col=DC[si][pi]||DC[si][0];
+      dot(s.x,s.y,col,4);
+      label(PN[si][pi],s.x,s.y-6,col);
+    });
+  });
+}
+
+// ── UI update ──
+const mm=function(v){return v!==null&&v!==undefined?v.toFixed(2)+' mm':'-';};
+const mmSigned=function(v){
+  if(v===null||v===undefined)return'-';
+  return(v>=0?'+':'')+v.toFixed(2)+' mm';
+};
+const deg=function(v){return v!==null&&v!==undefined?v.toFixed(1)+'°':'-';};
+
+const HINTS=[
+  '① p1·p2·p3: MP head 위 3점을 찍으세요',
+  '② p4(tip)·p5(volar)·p6(dorsal): DP 3점을 찍으세요',
+  '③ p8(volar)·p9·p10(dorsal): MP base 3점을 찍으세요',
+  '④ p11(volar)·p12(dorsal): PP 2점을 찍으세요',
+  '✅ 측정 완료! 결과를 확인하고 저장하세요.'
+];
+
+function updateUI(){
+  compute();
+  const step=activeStep();
+  if(state.imgLoaded)hint.textContent=HINTS[Math.min(step,4)];
+
+  for(let i=0;i<4;i++){
+    const card=document.getElementById('card'+i);
+    const badge=document.getElementById('badge'+i);
+    const n=state.pts[i].length,req=SPT[i];
+    card.className='scard'+(i===step?' active':(n>=req?' done':' waiting'));
+    card.style.borderLeftColor=SC[i];
+    card.style.boxShadow=i===step?('0 0 0 1.5px '+SC[i]):'';
+    badge.textContent=n+'/'+req+'점';
+    badge.style.background=n>=req?'#14532d':'#1e2a3a';
+    badge.style.color=n>=req?'#86efac':'#64748b';
+
+    const plist=document.getElementById('plist'+i);
+    if(!n){plist.innerHTML='<div class="empty">'+HINTS[i]+'</div>';}
+    else plist.innerHTML=state.pts[i].map(function(p,pi){
+      return'<div class="pitem"><span class="pdot" style="background:'+(DC[i][pi]||DC[i][0])+'"></span>'
+        +PN[i][pi]+': ('+p.x.toFixed(1)+', '+p.y.toFixed(1)+')</div>';
+    }).join('');
+
+    const ci=document.getElementById('cinfo'+i);
+    if(i===0){
+      ci.innerHTML=R.r1!==null?'<span style="color:#fb923c;font-weight:700">c1 ✓ &nbsp; r1 = '+R.r1.toFixed(2)+' mm</span>':'<div class="empty">3점 후 c1, r1 표시</div>';
+    } else if(i===1){
+      let h='';
+      if(R.r2!==null)h+='<span style="color:#38bdf8;font-weight:700">r2 = '+R.r2.toFixed(2)+' mm</span><br>';
+      if(R.dpCovAngle!==null)h+='<span style="color:#fbbf24">coverage: '+R.dpCovAngle.toFixed(1)+'°</span><br>';
+      if(R.dipjThickness!==null)h+='<span style="color:#fbbf24;font-weight:700">DIPJ thickness: '+R.dipjThickness.toFixed(2)+' mm</span>';
+      ci.innerHTML=h||'<div class="empty">3점 후 표시</div>';
+    } else if(i===2){
+      ci.innerHTML=R.r3!==null?'<span style="color:#c084fc;font-weight:700">c2 ✓ &nbsp; r3 = '+R.r3.toFixed(2)+' mm</span>':'<div class="empty">3점 후 c2, r3 표시</div>';
+    } else {
+      let h='';
+      if(R.r4!==null)h+='<span style="color:#4ade80;font-weight:700">r4 = '+R.r4.toFixed(2)+' mm</span><br>';
+      if(R.ppCovAngle!==null)h+='<span style="color:#86efac">coverage: '+R.ppCovAngle.toFixed(1)+'°</span><br>';
+      if(R.pipjThickness!==null)h+='<span style="color:#fbbf24;font-weight:700">PIPJ thickness: '+R.pipjThickness.toFixed(2)+' mm</span>';
+      ci.innerHTML=h||'<div class="empty">2점 후 표시</div>';
+    }
+  }
+
+  document.getElementById('res_r1').textContent=mm(R.r1);
+  document.getElementById('res_r2').textContent=mm(R.r2);
+  document.getElementById('res_dpArc').textContent=mm(R.dpArcLen);
+  document.getElementById('res_dpCov').textContent=deg(R.dpCovAngle);
+  document.getElementById('res_dpGap').textContent=mmSigned(R.dpGap);
+  document.getElementById('res_dipjT').textContent=mm(R.dipjThickness);
+  document.getElementById('res_r3').textContent=mm(R.r3);
+  document.getElementById('res_r4').textContent=mm(R.r4);
+  document.getElementById('res_ppArc').textContent=mm(R.ppArcLen);
+  document.getElementById('res_ppCov').textContent=deg(R.ppCovAngle);
+  document.getElementById('res_ppGap').textContent=mmSigned(R.ppGap);
+  document.getElementById('res_pipjT').textContent=mm(R.pipjThickness);
+  document.getElementById('res_mpLen').textContent=mm(R.mpLen);
+  document.getElementById('res_dpLen').textContent=mm(R.dpLen);
+  document.getElementById('res_dipjA').textContent=deg(R.dipjAngle);
+
+  updatePsPanel();
+}
+
+function updatePsPanel(){
+  const sb=document.getElementById('psStatusBadge');
+  if(!state.imgLoaded){sb.textContent='파일 없음';sb.style.background='#1e2a3a';sb.style.color='#64748b';return;}
+  if(state.psIsDefault){sb.textContent='⚠ 기본값';sb.style.background='#450a0a';sb.style.color='#f87171';}
+  else if(state.psAniso){sb.textContent='⚠ 비등방';sb.style.background='#451a03';sb.style.color='#fbbf24';}
+  else{sb.textContent='✓ 정상';sb.style.background='#052e16';sb.style.color='#86efac';}
+  document.getElementById('psVal').textContent=state.PS.toFixed(4)+' mm/px';
+  document.getElementById('psRowCol').textContent=state.psRow.toFixed(4)+' / '+state.psCol.toFixed(4);
+  document.getElementById('psSrc').textContent=state.psSource;
+}
+
+function reset(){state.pts=[[],[],[],[]];resetR();updateUI();redraw();}
+
+// ── Load file ──
+// loadBuffer: used by batch mode — receives pre-read ArrayBuffer
+function loadBuffer(fileName, buffer){
+  const r=parseDicom(buffer);
+  if(!r){
+    if(batch.active){
+      if(confirm('DICOM 파싱 실패\n파일: '+fileName+'\n\n이 파일을 건너뛰고 다음 파일로 진행할까요?')){
+        batchAdvance();
+      } else {
+        batchStop();
+      }
+    } else {
+      alert('DICOM 파싱 실패\n유효한 .dcm 파일인지 확인하세요.');
+    }
+    return;
+  }
+  state.PS=r.ps;state.psRow=r.psRow;state.psCol=r.psCol;
+  state.psSource=r.psSource;state.psIsDefault=r.psIsDefault;state.psAniso=r.psAniso;
+  state.currentFile=fileName;
+  document.getElementById('metaFile').value=fileName;
+  document.getElementById('metaPID').value=''; // clear PID for new file
+  const badge=document.getElementById('psBadge');
+  if(r.psIsDefault){badge.textContent='⚠ 기본값 '+r.ps.toFixed(4)+' mm/px';badge.style.color='#ef4444';}
+  else if(r.psAniso){badge.textContent='⚠ 비등방 '+r.ps.toFixed(4)+' mm/px';badge.style.color='#f59e0b';}
+  else{badge.textContent='✓ '+r.ps.toFixed(4)+' mm/px';badge.style.color='#22c55e';}
+  if(r.psIsDefault)alert('⚠️ 픽셀간격 헤더 미인식\n기본값 '+PS_DEFAULT+' mm/px 로 계산합니다.');
+  else if(r.psAniso)alert('⚠️ 비등방성 픽셀간격\n'+r.psWarn);
+  img=new Image();
+  img.onload=function(){
+    state.imgLoaded=true;
+    dz.classList.add('hidden');
+    hint.style.display='block';
+    zctrls.style.display='flex';
+    fit();reset();
+  };
+  img.src=r.dataUrl;
+}
+
+function loadFile(file){
+  if(!file)return;
+  const fileName=file.name; // capture before async
+  const reader=new FileReader();
+  reader.onload=function(e){
+    const r=parseDicom(e.target.result);
+    if(!r){alert('DICOM 파싱 실패\n유효한 .dcm 파일인지 확인하세요.');return;}
+    state.PS=r.ps;state.psRow=r.psRow;state.psCol=r.psCol;
+    state.psSource=r.psSource;state.psIsDefault=r.psIsDefault;state.psAniso=r.psAniso;
+    state.currentFile=fileName; // use captured name
+    document.getElementById('metaFile').value=fileName;
+    document.getElementById('metaPID').value=''; // clear PID for new file
+    const badge=document.getElementById('psBadge');
+    if(r.psIsDefault){badge.textContent='⚠ 기본값 '+r.ps.toFixed(4)+' mm/px';badge.style.color='#ef4444';}
+    else if(r.psAniso){badge.textContent='⚠ 비등방 '+r.ps.toFixed(4)+' mm/px';badge.style.color='#f59e0b';}
+    else{badge.textContent='✓ '+r.ps.toFixed(4)+' mm/px';badge.style.color='#22c55e';}
+    if(r.psIsDefault)alert('⚠️ 픽셀간격 헤더 미인식\n기본값 '+PS_DEFAULT+' mm/px 로 계산합니다.\n결과를 신뢰하지 마세요.');
+    else if(r.psAniso)alert('⚠️ 비등방성 픽셀간격\n'+r.psWarn);
+    // Create a fresh Image object each time to avoid stale onload / cache issues
+    img=new Image();
+    img.onload=function(){
+      state.imgLoaded=true;
+      dz.classList.add('hidden');
+      hint.style.display='block';
+      zctrls.style.display='flex';
+      fit();reset();
+    };
+    img.src=r.dataUrl;
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── Events ──
+canvas.addEventListener('click',function(e){
+  if(state.isPanning||!state.imgLoaded)return;
+  const step=activeStep();if(step>=4)return;
+  const rect=canvas.getBoundingClientRect();
+  const ip=toImg(e.clientX-rect.left,e.clientY-rect.top);
+  if(ip.x<0||ip.x>img.width||ip.y<0||ip.y>img.height)return;
+  state.pts[step].push(ip);updateUI();redraw();
+});
+canvas.addEventListener('mousedown',function(e){
+  if(e.altKey){state.isPanning=true;state.panStart={x:e.clientX,y:e.clientY};state.panOff={x:state.offsetX,y:state.offsetY};canvas.style.cursor='move';}
+});
+canvas.addEventListener('mousemove',function(e){
+  if(!state.isPanning)return;
+  state.offsetX=state.panOff.x+(e.clientX-state.panStart.x);
+  state.offsetY=state.panOff.y+(e.clientY-state.panStart.y);
+  redraw();
+});
+canvas.addEventListener('mouseup',function(){state.isPanning=false;canvas.style.cursor='crosshair';});
+canvas.addEventListener('mouseleave',function(){state.isPanning=false;canvas.style.cursor='crosshair';});
+canvas.addEventListener('wheel',function(e){
+  e.preventDefault();
+  const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const f=e.deltaY<0?1.12:1/1.12,ns=Math.min(20,Math.max(0.05,state.scale*f));
+  state.offsetX=mx-(mx-state.offsetX)*(ns/state.scale);
+  state.offsetY=my-(my-state.offsetY)*(ns/state.scale);
+  state.scale=ns;redraw();
+},{passive:false});
+
+area.addEventListener('dragover',function(e){e.preventDefault();document.getElementById('dropOverlay').classList.add('show');});
+area.addEventListener('dragleave',function(){document.getElementById('dropOverlay').classList.remove('show');});
+area.addEventListener('drop',function(e){e.preventDefault();document.getElementById('dropOverlay').classList.remove('show');loadFile(e.dataTransfer.files[0]);});
+
+document.getElementById('fileInput').addEventListener('change',function(e){loadFile(e.target.files[0]);this.value='';});
+document.getElementById('fileInput2').addEventListener('change',function(e){loadFile(e.target.files[0]);this.value='';});
+
+document.getElementById('zIn').addEventListener('click',function(){state.scale=Math.min(20,state.scale*1.3);redraw();});
+document.getElementById('zOut').addEventListener('click',function(){state.scale=Math.max(0.05,state.scale/1.3);redraw();});
+document.getElementById('zReset').addEventListener('click',function(){fit();redraw();});
+document.getElementById('undoBtn').addEventListener('click',function(){
+  for(let i=3;i>=0;i--){if(state.pts[i].length>0){state.pts[i].pop();break;}}
+  updateUI();redraw();
+});
+document.getElementById('clearBtn').addEventListener('click',reset);
+
+// ── Storage ──
+function loadRecs(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch(e){return[];}}
+function saveRecs(a){localStorage.setItem(STORAGE_KEY,JSON.stringify(a));}
+
+// ── Batch (folder) state ──
+// batch.files stores {name, buffer} objects — ArrayBuffers read immediately at folder load
+// This avoids File object invalidation issues with webkitdirectory
+const batch={files:[],idx:0,active:false};
+
+function batchUpdateUI(){
+  const bar=document.getElementById('batchBar');
+  if(!batch.active){bar.style.display='none';return;}
+  bar.style.display='flex';
+  const name=batch.files[batch.idx]?batch.files[batch.idx].name:'';
+  document.getElementById('batchCurrent').textContent=name;
+  document.getElementById('batchCurrent').title=name;
+  document.getElementById('batchIdx').textContent=(batch.idx+1)+'/'+batch.files.length;
+  const pct=Math.round((batch.idx+1)/batch.files.length*100);
+  document.getElementById('batchProgress').style.width=pct+'%';
+}
+
+function batchLoadCurrent(){
+  if(!batch.active||batch.idx>=batch.files.length)return;
+  loadBuffer(batch.files[batch.idx].name, batch.files[batch.idx].buffer);
+  batchUpdateUI();
+}
+
+function batchAdvance(){
+  if(!batch.active)return;
+  batch.idx++;
+  if(batch.idx>=batch.files.length){
+    batch.active=false;
+    batchUpdateUI();
+    alert('🎉 폴더 내 모든 파일 측정이 완료되었습니다!\n총 '+batch.files.length+'개 파일 처리');
+    return;
+  }
+  batchLoadCurrent();
+}
+
+function batchStop(){
+  batch.active=false;batch.files=[];batch.idx=0;
+  batchUpdateUI();
+}
+
+document.getElementById('folderInput').addEventListener('change',function(e){
+  const fileList=Array.from(e.target.files)
+    .filter(function(f){return f.name.toLowerCase().endsWith('.dcm');})
+    .sort(function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true});});
+  if(!fileList.length){alert('선택한 폴더에 .dcm 파일이 없습니다.');return;}
+  // Read ALL files into ArrayBuffer immediately — File refs can become stale later
+  batch.files=[];batch.idx=0;batch.active=false;
+  let loaded=0;
+  const total=fileList.length;
+  // Show loading indicator
+  document.getElementById('batchBar').style.display='flex';
+  document.getElementById('batchCurrent').textContent='파일 읽는 중...';
+  document.getElementById('batchIdx').textContent='0/'+total;
+  document.getElementById('batchProgress').style.width='0%';
+  fileList.forEach(function(file,i){
+    const reader=new FileReader();
+    reader.onload=function(ev){
+      batch.files.push({name:file.name,buffer:ev.target.result});
+      loaded++;
+      document.getElementById('batchIdx').textContent=loaded+'/'+total;
+      document.getElementById('batchProgress').style.width=Math.round(loaded/total*100)+'%';
+      if(loaded===total){
+        // All files read — sort by name again (push order may vary)
+        batch.files.sort(function(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true});});
+        batch.idx=0;batch.active=true;
+        batchUpdateUI();
+        batchLoadCurrent();
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+});
+
+document.getElementById('batchSkipBtn').addEventListener('click',function(){
+  if(!batch.active)return;
+  if(!confirm('현재 파일('+batch.files[batch.idx].name+')을 저장 없이 건너뛰시겠습니까?'))return;
+  batchAdvance();
+});
+document.getElementById('batchStopBtn').addEventListener('click',function(){
+  if(!confirm('배치 측정을 종료하시겠습니까?'))return;
+  batchStop();
+});
+
+let _isSaving=false; // prevent double-fire
+document.getElementById('saveBtn').addEventListener('click',function(){
+  if(_isSaving)return;
+  if(R.r1===null||R.r2===null||R.r3===null||R.r4===null){
+    alert('미완성 측정입니다.\n4단계를 모두 완료한 후 저장하세요.');return;
+  }
+  _isSaving=true;
+  // Snapshot ALL values now before anything changes
+  const snap={
+    fileName:state.currentFile,
+    date:document.getElementById('metaDate').value||'-',
+    user:document.getElementById('metaUser').value.trim()||'(미입력)',
+    pid:document.getElementById('metaPID').value.trim()||'-',
+    ps:state.PS.toFixed(4),psRow:state.psRow.toFixed(4),psCol:state.psCol.toFixed(4),
+    psSource:state.psSource,psIsDefault:state.psIsDefault?'기본값(미인식)':'헤더인식',
+    r1:mm(R.r1),r2:mm(R.r2),
+    dpArc:mm(R.dpArcLen),dpCov:deg(R.dpCovAngle),dpGap:mmSigned(R.dpGap),
+    dipjT:mm(R.dipjThickness),
+    r3:mm(R.r3),r4:mm(R.r4),
+    ppArc:mm(R.ppArcLen),ppCov:deg(R.ppCovAngle),ppGap:mmSigned(R.ppGap),
+    pipjT:mm(R.pipjThickness),
+    mpLen:mm(R.mpLen),dpLen:mm(R.dpLen),dipjA:deg(R.dipjAngle),
+    savedAt:new Date().toISOString()
+  };
+  const rec={
+    date:snap.date,user:snap.user,pid:snap.pid,file:snap.fileName,
+    ps:snap.ps,psRow:snap.psRow,psCol:snap.psCol,
+    psSource:snap.psSource,psIsDefault:snap.psIsDefault,
+    r1:snap.r1,r2:snap.r2,
+    dpArc:snap.dpArc,dpCov:snap.dpCov,dpGap:snap.dpGap,
+    dipjT:snap.dipjT,
+    r3:snap.r3,r4:snap.r4,
+    ppArc:snap.ppArc,ppCov:snap.ppCov,ppGap:snap.ppGap,
+    pipjT:snap.pipjT,
+    mpLen:snap.mpLen,dpLen:snap.dpLen,dipjA:snap.dipjA,
+    savedAt:snap.savedAt
+  };
+  const arr=loadRecs();arr.push(rec);saveRecs(arr);
+  const total=arr.length;
+  const isBatch=batch.active;
+  const isLast=!batch.active||(batch.files.length-batch.idx-1<=0);
+  // Advance or finish AFTER save is complete, in next event loop tick
+  setTimeout(function(){
+    _isSaving=false;
+    if(isBatch){
+      if(!isLast){
+        batchAdvance();
+      } else {
+        batch.active=false;
+        batchUpdateUI();
+        alert('✅ 저장 완료!\n\n🎉 폴더 내 모든 파일('+batch.files.length+'개) 측정이 완료되었습니다!\n총 저장 건수: '+total+'건');
+      }
+    } else {
+      alert('✅ 저장 완료! (총 '+total+'건)');
+    }
+  },0);
+});
+
+function renderTable(){
+  const arr=loadRecs(),tbody=document.getElementById('resultTbody');
+  if(!arr.length){tbody.innerHTML='<tr><td colspan="23" class="no-data">저장된 결과 없음</td></tr>';return;}
+  tbody.innerHTML=arr.map(function(r,i){
+    const bad=r.psIsDefault==='기본값(미인식)';
+    const ps='<td style="'+(bad?'color:#ef4444;font-weight:700':'')+'">'+(r.ps||'-')+'</td>';
+    return'<tr><td>'+(i+1)+'</td><td>'+r.date+'</td><td>'+r.user+'</td><td>'+(r.pid||'-')+'</td>'
+      +'<td style="max-width:90px;overflow:hidden;text-overflow:ellipsis" title="'+(r.file||'')+'">'+( r.file||'-')+'</td>'
+      +ps+'<td>'+(r.psSource||'-')+'</td>'
+      +'<td>'+r.r1+'</td><td>'+r.r2+'</td>'
+      +'<td>'+r.dpArc+'</td><td>'+r.dpCov+'</td><td>'+r.dpGap+'</td>'
+      +'<td style="color:#fbbf24;font-weight:700">'+r.dipjT+'</td>'
+      +'<td>'+r.r3+'</td><td>'+r.r4+'</td>'
+      +'<td>'+r.ppArc+'</td><td>'+r.ppCov+'</td><td>'+r.ppGap+'</td>'
+      +'<td style="color:#fbbf24;font-weight:700">'+r.pipjT+'</td>'
+      +'<td style="color:#fbbf24;font-weight:700">'+r.mpLen+'</td>'
+      +'<td style="color:#fbbf24;font-weight:700">'+r.dpLen+'</td>'
+      +'<td style="color:#4ade80;font-weight:700">'+r.dipjA+'</td>'
+      +'<td><button class="del-btn" data-idx="'+i+'">삭제</button></td></tr>';
+  }).join('');
+}
+
+document.getElementById('resultTbody').addEventListener('click',function(e){
+  const btn=e.target.closest('.del-btn');if(!btn)return;
+  const idx=parseInt(btn.dataset.idx,10);if(isNaN(idx))return;
+  if(!confirm('이 항목을 삭제하시겠습니까?'))return;
+  const arr=loadRecs();arr.splice(idx,1);saveRecs(arr);renderTable();
+});
+document.getElementById('showResultsBtn').addEventListener('click',function(){renderTable();document.getElementById('modalBg').classList.add('show');});
+document.getElementById('closeModalBtn').addEventListener('click',function(){document.getElementById('modalBg').classList.remove('show');});
+document.getElementById('modalBg').addEventListener('click',function(e){if(e.target===this)this.classList.remove('show');});
+document.getElementById('clearAllBtn').addEventListener('click',function(){if(!confirm('전체 삭제?'))return;saveRecs([]);renderTable();});
+// CSV → UTF-16 LE with BOM (best compatibility with macOS/Windows Excel)
+function csvToUTF16LE(str){
+  const bom=new Uint8Array([0xFF,0xFE]); // UTF-16 LE BOM
+  const buf=new ArrayBuffer(str.length*2);
+  const view=new Uint16Array(buf);
+  for(let i=0;i<str.length;i++)view[i]=str.charCodeAt(i);
+  const result=new Uint8Array(bom.length+buf.byteLength);
+  result.set(bom,0);
+  result.set(new Uint8Array(buf),bom.length);
+  return result;
+}
+
+document.getElementById('csvBtn').addEventListener('click',function(){
+  const arr=loadRecs();if(!arr.length){alert('저장된 데이터가 없습니다.');return;}
+  const hdr='번호,측정일,측정자,환자ID,파일명,PS(mm/px),PS행,PS열,PS상태,PS출처,'
+    +'r1 MP head(mm),r2 DP base(mm),DP arc(mm),DP cov(°),DP gap(mm),DIPJ thickness(mm),'
+    +'r3 MP base(mm),r4 PP head(mm),MP base arc(mm),MP base cov(°),PP gap(mm),PIPJ thickness(mm),'
+    +'MP length(mm),DP length(mm),DIPJ ext(°)';
+  const rows=arr.map(function(r,i){
+    return[i+1,r.date,r.user,r.pid,'"'+(r.file||'')+'"',
+      r.ps,r.psRow,r.psCol,r.psIsDefault,r.psSource,
+      r.r1,r.r2,r.dpArc,r.dpCov,r.dpGap,r.dipjT,
+      r.r3,r.r4,r.ppArc,r.ppCov,r.ppGap,r.pipjT,
+      r.mpLen,r.dpLen,r.dipjA].join(',');
+  });
+  const csv='\uFEFF'+hdr+'\n'+rows.join('\n');
+  // Encode as UTF-16 LE with BOM — most compatible with macOS Excel
+  const utf16=csvToUTF16LE(csv);
+  const blob=new Blob([utf16],{type:'text/csv;charset=utf-16le'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='dicom_measurements_v5.csv';a.click();URL.revokeObjectURL(url);
+});
+
+// ── Init ──
+(function(){
+  const d=new Date();
+  document.getElementById('metaDate').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+})();
+window.addEventListener('resize',function(){if(state.imgLoaded){fit();redraw();}});
+updateUI();
+</script>
+</body>
+</html>
